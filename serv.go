@@ -52,13 +52,14 @@ func (s *ServHTTP) AddHandler(pattern string, handler func(http.ResponseWriter, 
 
 // AddAuthFunc adds middleware authentication.
 func (s *ServHTTP) AddAuthFunc(f func(r *http.Request) bool, redirectUrl string) {
+	handler := s.Handler
 	s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !f(r) {
 			http.Redirect(w, r, redirectUrl, http.StatusTemporaryRedirect)
 			return
 		}
 		// Assuming authentication passed, run the original handler
-		//s.Handler.ServeHTTP(w, r)
+		handler.ServeHTTP(w, r)
 	})
 }
 
