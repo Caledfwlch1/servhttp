@@ -1,3 +1,4 @@
+// The servhttp package simplifies the organization of starting and shutting down an HTTP server.
 package servhttp
 
 import (
@@ -13,6 +14,7 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
+// HTTP server type with a logger.
 type ServHTTP struct {
 	*log.Logger
 	*http.Server
@@ -20,8 +22,10 @@ type ServHTTP struct {
 	timeoutServerShutdown time.Duration
 }
 
+// Handler registration type.
 type HandlerMap map[string]func(http.ResponseWriter, *http.Request)
 
+// This function creates a new HTTP server with an empty handler.
 func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *ServHTTP {
 	return &ServHTTP{
 		Logger: logger,
@@ -36,10 +40,12 @@ func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *
 	}
 }
 
+// NewHandler creates a new registration type.
 func NewHandler() HandlerMap {
 	return make(map[string]func(http.ResponseWriter, *http.Request))
 }
 
+// Adds new handler to the HandlerMap
 func (h HandlerMap) Add(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 	if h == nil {
 		h = NewHandler()
@@ -47,6 +53,7 @@ func (h HandlerMap) Add(pattern string, handler func(http.ResponseWriter, *http.
 	h[pattern] = handler
 }
 
+// Graceful shutdown method
 func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
@@ -72,6 +79,8 @@ func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error 
 	return nil
 }
 
+// ServeAutoCert runs http.ListenAndServe if the domains slice is empty.
+// Otherwise, it runs http.ListenAndServeTLS with a list of domains using Let's Encrypt.
 func (s *ServHTTP) ServeAutoCert(domains ...string) error {
 	if len(domains) == 0 {
 		return s.ListenAndServe()
@@ -88,6 +97,7 @@ func (s *ServHTTP) ServeAutoCert(domains ...string) error {
 	return s.ListenAndServeTLS("", "")
 }
 
+// This method combines the methods of ServeAutoCert and Shutdown.
 func (s *ServHTTP) ServeAndShutdown(domains ...string) {
 	_, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -102,6 +112,7 @@ func (s *ServHTTP) ServeAndShutdown(domains ...string) {
 	}
 }
 
+// HandlersRegistration registers handlers.
 func (s *ServHTTP) HandlersRegistration(handlers map[string]func(http.ResponseWriter, *http.Request)) {
 	router := http.NewServeMux()
 
