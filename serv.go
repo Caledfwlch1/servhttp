@@ -58,7 +58,7 @@ func (s *ServHTTP) AddAuthFunc(f func(r *http.Request) bool, redirectUrl string)
 			return
 		}
 		// Assuming authentication passed, run the original handler
-		s.Handler.ServeHTTP(w, r)
+		//s.Handler.ServeHTTP(w, r)
 	})
 }
 
