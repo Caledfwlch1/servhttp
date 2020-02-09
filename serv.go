@@ -1,5 +1,6 @@
 // The servhttp package simplifies the organization of starting and shutting down an HTTP server.
-//
+// This package automatically receives Let's Encrypt certificates.
+// For more information, visit https://letsencrypt.org.
 package servhttp
 
 import (
@@ -59,7 +60,7 @@ func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error 
 	case <-quit:
 	}
 
-	s.Println("shutdown server ...")
+	s.Println("server shutdown ...")
 	cancel()
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(context.Background(), s.timeoutServerShutdown)
@@ -69,7 +70,7 @@ func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error 
 		return fmt.Errorf("server shutdown: %s", err)
 	}
 
-	s.Println("server exiting")
+	s.Println("server shut down")
 	return nil
 }
 
