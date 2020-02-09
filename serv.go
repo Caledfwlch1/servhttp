@@ -21,6 +21,8 @@ type ServHTTP struct {
 	*log.Logger
 	*http.Server
 
+	authFunc              func(r *http.Request) bool
+	redirectUrl           string
 	router                *http.ServeMux
 	timeoutServerShutdown time.Duration
 }
@@ -46,6 +48,18 @@ func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *
 // Adds new handler to the ServHTTP
 func (s *ServHTTP) AddHandler(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 	s.router.HandleFunc(pattern, handler)
+}
+
+// AddAuthFunc adds middleware authentication.
+func (s *ServHTTP) AddAuthFunc(f func(r *http.Request) bool, redirectUrl string) {
+	s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !f(r) {
+			http.Redirect(w, r, redirectUrl, http.StatusTemporaryRedirect)
+			return
+		}
+		// Assuming authentication passed, run the original handler
+		s.Handler.ServeHTTP(w, r)
+	})
 }
 
 // Graceful shutdown method
