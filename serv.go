@@ -1,4 +1,5 @@
 // The servhttp package simplifies the organization of starting and shutting down an HTTP server.
+//
 package servhttp
 
 import (
@@ -19,38 +20,31 @@ type ServHTTP struct {
 	*log.Logger
 	*http.Server
 
+	router                *http.ServeMux
 	timeoutServerShutdown time.Duration
 }
 
-// Handler registration type.
-type HandlerMap map[string]func(http.ResponseWriter, *http.Request)
-
 // This function creates a new HTTP server with an empty handler.
 func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *ServHTTP {
+	router := http.NewServeMux()
 	return &ServHTTP{
 		Logger: logger,
 		Server: &http.Server{
 			Addr:         listenAddr,
+			Handler:      router,
 			ErrorLog:     logger,
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  15 * time.Second,
 		},
+		router:                router,
 		timeoutServerShutdown: timeoutShutdown,
 	}
 }
 
-// NewHandler creates a new registration type.
-func NewHandler() HandlerMap {
-	return make(map[string]func(http.ResponseWriter, *http.Request))
-}
-
-// Adds new handler to the HandlerMap
-func (h HandlerMap) Add(pattern string, handler func(http.ResponseWriter, *http.Request)) {
-	if h == nil {
-		h = NewHandler()
-	}
-	h[pattern] = handler
+// Adds new handler to the ServHTTP
+func (s *ServHTTP) AddHandler(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+	s.router.HandleFunc(pattern, handler)
 }
 
 // Graceful shutdown method
@@ -110,14 +104,4 @@ func (s *ServHTTP) ServeAndShutdown(domains ...string) {
 	if err := s.Shutdown(cancel, stop); err != nil {
 		s.Fatalln(err)
 	}
-}
-
-// HandlersRegistration registers handlers.
-func (s *ServHTTP) HandlersRegistration(handlers map[string]func(http.ResponseWriter, *http.Request)) {
-	router := http.NewServeMux()
-
-	for pattern, handler := range handlers {
-		router.HandleFunc(pattern, handler)
-	}
-	s.Handler = router
 }
