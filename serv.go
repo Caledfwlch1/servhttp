@@ -54,7 +54,7 @@ func (s *ServHTTP) AddHandler(pattern string, handler func(http.ResponseWriter, 
 func (s *ServHTTP) AddAuthFunc(f func(r *http.Request) bool, redirectUrl string) {
 	handler := s.Handler
 	s.Handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !f(r) {
+		if r.URL.Path != redirectUrl && !f(r) {
 			http.Redirect(w, r, redirectUrl, http.StatusTemporaryRedirect)
 			return
 		}
