@@ -59,7 +59,7 @@ func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error 
 	case <-quit:
 	}
 
-	s.Println("Shutdown Server ...")
+	s.Println("shutdown server ...")
 	cancel()
 
 	ctxTimeout, cancelTimeout := context.WithTimeout(context.Background(), s.timeoutServerShutdown)
@@ -69,7 +69,7 @@ func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error 
 		return fmt.Errorf("server shutdown: %s", err)
 	}
 
-	s.Println("Server exiting")
+	s.Println("server exiting")
 	return nil
 }
 
@@ -100,6 +100,8 @@ func (s *ServHTTP) ServeAndShutdown(domains ...string) {
 	go func() {
 		stop <- s.ServeAutoCert(domains...)
 	}()
+
+	s.Println("server started")
 
 	if err := s.Shutdown(cancel, stop); err != nil {
 		s.Fatalln(err)

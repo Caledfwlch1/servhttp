@@ -19,5 +19,5 @@ func ExampleServHTTP_ServeAndShutdown() {
 		_, _ = w.Write([]byte("OK"))
 	})
 
-	srv.ServeAndShutdown()
+	srv.ServeAndShutdown("example.com")
 }
