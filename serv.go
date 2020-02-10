@@ -21,15 +21,20 @@ type ServHTTP struct {
 	*log.Logger
 	*http.Server
 
-	authFunc              func(r *http.Request) bool
-	redirectUrl           string
-	router                *http.ServeMux
-	timeoutServerShutdown time.Duration
+	// Server stop channel.
+	Stop chan error
+
+	authFunc        func(r *http.Request) bool
+	redirectUrl     string
+	router          *http.ServeMux
+	timeoutShutdown time.Duration
 }
 
 // This function creates a new HTTP server with an empty handler.
-func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *ServHTTP {
+func New(listenAddr string) *ServHTTP {
+	logger := log.New(os.Stdout, "http: ", log.LstdFlags)
 	router := http.NewServeMux()
+
 	return &ServHTTP{
 		Logger: logger,
 		Server: &http.Server{
@@ -40,13 +45,19 @@ func New(logger *log.Logger, listenAddr string, timeoutShutdown time.Duration) *
 			WriteTimeout: 10 * time.Second,
 			IdleTimeout:  15 * time.Second,
 		},
-		router:                router,
-		timeoutServerShutdown: timeoutShutdown,
+		router:          router,
+		Stop:            make(chan error, 1),
+		timeoutShutdown: time.Minute,
 	}
 }
 
-// Adds new handler to the ServHTTP
-func (s *ServHTTP) AddHandler(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+// AddHandle registers the handler for the given pattern in the ServHTTP.
+func (s *ServHTTP) AddHandle(pattern string, handler http.Handler) {
+	s.router.Handle(pattern, handler)
+}
+
+// Adds a new handler to the ServHTTP for the given pattern.
+func (s *ServHTTP) AddHandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
 	s.router.HandleFunc(pattern, handler)
 }
 
@@ -63,22 +74,36 @@ func (s *ServHTTP) AddAuthFunc(f func(r *http.Request) bool, redirectUrl string)
 	})
 }
 
-// Graceful shutdown method
-func (s *ServHTTP) Shutdown(cancel context.CancelFunc, stop <-chan error) error {
+// Using the Config command, you can change the server settings.
+// If you want to set one of the parameters, you can set the second with a default value for the corresponding type.
+// Example:
+// srv.Config(nil, time.Minute * 2) sets only the server timeout
+// or
+// srv.Config(logger, 0) sets only logger
+func (s *ServHTTP) Config(logger *log.Logger, timeout time.Duration) {
+	if logger != nil {
+		s.Logger = logger
+	}
+
+	if timeout != 0 {
+		s.timeoutShutdown = timeout
+	}
+}
+
+// Graceful shutdown method.
+func (s *ServHTTP) Shutdown() error {
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	select {
-	case err := <-stop:
-		cancel()
+	case err := <-s.Stop:
 		return fmt.Errorf("listen: %v\n", err)
 	case <-quit:
 	}
 
 	s.Println("server shutdown ...")
-	cancel()
 
-	ctxTimeout, cancelTimeout := context.WithTimeout(context.Background(), s.timeoutServerShutdown)
+	ctxTimeout, cancelTimeout := context.WithTimeout(context.Background(), s.timeoutShutdown)
 	defer cancelTimeout()
 
 	if err := s.Server.Shutdown(ctxTimeout); err != nil {
@@ -109,17 +134,13 @@ func (s *ServHTTP) ServeAutoCert(domains ...string) error {
 
 // This method combines the methods of ServeAutoCert and Shutdown.
 func (s *ServHTTP) ServeAndShutdown(domains ...string) {
-	_, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stop := make(chan error, 1)
-
 	go func() {
-		stop <- s.ServeAutoCert(domains...)
+		s.Stop <- s.ServeAutoCert(domains...)
 	}()
 
 	s.Println("server started")
 
-	if err := s.Shutdown(cancel, stop); err != nil {
+	if err := s.Shutdown(); err != nil {
 		s.Fatalln(err)
 	}
 }
